@@ -1,14 +1,18 @@
-// Importujemy sterownik mysql2
-const mysql = require('mysql2');
+const { Pool } = require('pg');
+require('dotenv').config();
 
-// Tworzymy połączenie z bazą danych
-// Uzupełnij te dane zgodnie ze swoją konfiguracją XAMPP
-const connection = mysql.createConnection({
-  host: 'localhost',      // Adres serwera bazy danych (zazwyczaj 'localhost')
-  user: 'root',           // Nazwa użytkownika (domyślnie w XAMPP to 'root')
-  password: '',            // Hasło (domyślnie w XAMPP jest puste)
-  database: 'konkurs_wiedzy_bb' // Nazwa Twojej bazy danych
+// Ta konfiguracja automatycznie użyje zmiennej DATABASE_URL,
+// którą dostarczy nam Render. Nie musimy nic więcej robić!
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  // Jeśli Render będzie wymagał połączenia SSL (co jest standardem)
+  ssl: {
+    rejectUnauthorized: false
+  }
 });
 
-// Eksportujemy połączenie, aby można go było używać w innych plikach
-module.exports = connection.promise();
+// Eksportujemy pulę połączeń
+module.exports = {
+  query: (text, params) => pool.query(text, params),
+};
+    
