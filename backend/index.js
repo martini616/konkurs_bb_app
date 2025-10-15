@@ -26,6 +26,31 @@ app.get('/api/pytania', async (req, res) => {
   }
 });
 
+// --- NOWY ENDPOINT DO TESTOWANIA POŁĄCZENIA Z BAZĄ ---
+app.get('/api/test-db', async (req, res) => {
+  console.log('--- Rozpoczynam test połączenia z bazą danych... ---');
+  try {
+    // Wykonaj proste zapytanie, które zawsze powinno działać
+    const result = await db.query('SELECT NOW()');
+    
+    // Jeśli zapytanie się powiodło, wyślij komunikat o sukcesie
+    console.log('✅ Połączenie z bazą danych jest POPRAWNE!');
+    res.status(200).json({ 
+      status: 'Sukces', 
+      message: 'Połączenie z bazą danych działa poprawnie.',
+      czasSerweraBazy: result.rows[0].now 
+    });
+  } catch (err) {
+    // Jeśli wystąpił błąd, wyślij szczegółowe informacje
+    console.error('❌ BŁĄD KRYTYCZNY: Nie można połączyć się z bazą danych!', err);
+    res.status(500).json({ 
+      status: 'Błąd', 
+      message: 'Nie udało się połączyć z bazą danych.',
+      errorDetails: err.message
+    });
+  }
+});
+
 app.post('/api/sprawdz-odpowiedz', async (req, res) => {
   const { pytanieId, odpowiedzUzytkownika } = req.body;
   try {
