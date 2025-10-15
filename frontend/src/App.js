@@ -1,58 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// Adres API bierzemy ze zmiennej środowiskowej
-const API_URL = process.env.REACT_APP_API_URL;
+// --- NOWA, BEZPIECZNA OBSŁUGA URL ---
+// Bierzemy adres ze zmiennej, a na wszelki wypadek usuwamy ostatni ukośnik, jeśli istnieje.
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3001').replace(/\/$/, "");
 
 function App() {
   const [pytania, setPytania] = useState([]);
   const [aktualnePytanieIndex, setAktualnePytanieIndex] = useState(0);
   
-  // --- NOWE STANY ---
-  // Do przechowywania tekstu wpisywanego przez użytkownika
   const [odpowiedz, setOdpowiedz] = useState('');
-  // Do przechowywania wyniku od AI
   const [wynik, setWynik] = useState(null);
-  // Do pokazywania animacji ładowania podczas sprawdzania
   const [ladowanie, setLadowanie] = useState(false);
+  
+  const [punkty, setPunkty] = useState(0);
 
   useEffect(() => {
-    fetch(`${API_URL}/api/pytania`)
+    // Używamy nowej, bezpiecznej zmiennej
+    fetch(`${API_BASE_URL}/api/pytania`)
       .then(response => response.json())
-      .then(data => setPytania(data))
+      .then(data => {
+        // --- POCZĄTEK ZMIANY ---
+        // Filtrujemy dane, aby zostawić tylko pytania z odpowiedzią pojedynczą
+        const pytaniaPojedyncze = data.filter(p => p.typ_odpowiedzi === 'pojedyncza');
+        setPytania(pytaniaPojedyncze);
+        // --- KONIEC ZMIANY ---
+      })
       .catch(error => console.error('Błąd pobierania danych:', error));
   }, []);
 
-  // --- NOWA FUNKCJA DO SPRAWDZANIA ---
   const handleSprawdzOdpowiedz = async () => {
     if (!odpowiedz.trim()) {
       alert('Wpisz odpowiedź!');
       return;
     }
 
-    setLadowanie(true); // Pokaż ładowanie
-    setWynik(null); // Zresetuj stary wynik
+    setLadowanie(true);
+    setWynik(null);
 
     const aktualnePytanie = pytania[aktualnePytanieIndex];
 
     try {
-      const response = await fetch(`${API_URL}/api/sprawdz-odpowiedz`, {
+      const response = await fetch(`${API_BASE_URL}/api/sprawdz-odpowiedz`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pytanieId: aktualnePytanie.pytanie_id,
           odpowiedzUzytkownika: odpowiedz,
         }),
       });
       const data = await response.json();
-      setWynik(data); // Zapisz wynik od AI w stanie
+      setWynik(data);
+
+      if (data.ocena === 'poprawna') {
+        setPunkty(prevPunkty => prevPunkty + aktualnePytanie.punkty);
+      } else if (data.ocena === 'częściowo poprawna') {
+        setPunkty(prevPunkty => prevPunkty + Math.ceil(aktualnePytanie.punkty / 2));
+      }
+
     } catch (error) {
       console.error("Błąd sprawdzania odpowiedzi:", error);
       alert("Wystąpił błąd komunikacji z serwerem.");
     } finally {
-      setLadowanie(false); // Ukryj ładowanie
+      setLadowanie(false);
     }
   };
 
@@ -69,7 +79,11 @@ function App() {
   return (
     <div className="App">
       <header className="App-header">
-        <h1>Pytanie #{aktualnePytanieIndex + 1} / {pytania.length}</h1>
+        <div className="naglowek-info">
+          <h1>Pytanie #{aktualnePytanieIndex + 1} / {pytania.length}</h1>
+          <h2 className="punkty-info">Zdobyte punkty: {punkty}</h2>
+        </div>
+        
         <div className="progress-bar-container">
             <div className="progress-bar" style={{ width: `${((aktualnePytanieIndex + 1) / pytania.length) * 100}%` }}></div>
         </div>
@@ -85,10 +99,9 @@ function App() {
             placeholder="Wpisz swoją odpowiedź..."
             value={odpowiedz}
             onChange={(e) => setOdpowiedz(e.target.value)}
-            disabled={wynik !== null} // Zablokuj pole po sprawdzeniu
+            disabled={wynik !== null}
           />
           
-          {/* Pokazujemy przycisk "Sprawdź" lub "Następne pytanie" w zależności od sytuacji */}
           {wynik ? (
             <button className="sprawdz-button" onClick={handleNastepnePytanie}>Następne pytanie</button>
           ) : (
@@ -98,10 +111,8 @@ function App() {
           )}
         </div>
 
-        {/* --- NOWA SEKCJA DO WYŚWIETLANIA WYNIKU --- */}
         {wynik && (
           <div className="wynik-container">
-            {/* Używamy optional chaining (?.) i sprawdzamy, czy ocena istnieje */}
             {wynik.ocena ? (
               <h3>Ocena: <span className={`ocena-${wynik.ocena.replace(/\s+/g, '-')}`}>{wynik.ocena}</span></h3>
             ) : (
@@ -125,3 +136,5 @@ function App() {
 }
 
 export default App;
+
+
