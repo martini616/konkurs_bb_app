@@ -50,7 +50,7 @@ app.post('/api/sprawdz-odpowiedz', async (req, res) => {
     const wzorcoweOdpowiedzi = wzorcoweResult.rows;
     const pytanieTresc = pytanieResult.rows;
 
-    const modelName = "gemini-1.5-flash-latest"; 
+    const modelName = "gemini-2.5-flash"; 
     console.log(`[LOG] Krok 2: Przygotowywanie promptu dla modelu ${modelName}...`);
     const model = genAI.getGenerativeModel({ model: modelName });
     const prompt = `
