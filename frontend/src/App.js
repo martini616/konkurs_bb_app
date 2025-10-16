@@ -1,30 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-// --- NOWA, BEZPIECZNA OBSŁUGA URL ---
-// Bierzemy adres ze zmiennej, a na wszelki wypadek usuwamy ostatni ukośnik, jeśli istnieje.
 const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:3001').replace(/\/$/, "");
 
 function App() {
   const [pytania, setPytania] = useState([]);
   const [aktualnePytanieIndex, setAktualnePytanieIndex] = useState(0);
-  
   const [odpowiedz, setOdpowiedz] = useState('');
   const [wynik, setWynik] = useState(null);
   const [ladowanie, setLadowanie] = useState(false);
-  
   const [punkty, setPunkty] = useState(0);
 
   useEffect(() => {
-    // Używamy nowej, bezpiecznej zmiennej
     fetch(`${API_BASE_URL}/api/pytania`)
       .then(response => response.json())
       .then(data => {
-        // --- POCZĄTEK ZMIANY ---
-        // Filtrujemy dane, aby zostawić tylko pytania z odpowiedzią pojedynczą
         const pytaniaPojedyncze = data.filter(p => p.typ_odpowiedzi === 'pojedyncza');
         setPytania(pytaniaPojedyncze);
-        // --- KONIEC ZMIANY ---
       })
       .catch(error => console.error('Błąd pobierania danych:', error));
   }, []);
@@ -34,12 +26,9 @@ function App() {
       alert('Wpisz odpowiedź!');
       return;
     }
-
     setLadowanie(true);
     setWynik(null);
-
     const aktualnePytanie = pytania[aktualnePytanieIndex];
-
     try {
       const response = await fetch(`${API_BASE_URL}/api/sprawdz-odpowiedz`, {
         method: 'POST',
@@ -51,13 +40,11 @@ function App() {
       });
       const data = await response.json();
       setWynik(data);
-
       if (data.ocena === 'poprawna') {
         setPunkty(prevPunkty => prevPunkty + aktualnePytanie.punkty);
       } else if (data.ocena === 'częściowo poprawna') {
         setPunkty(prevPunkty => prevPunkty + Math.ceil(aktualnePytanie.punkty / 2));
       }
-
     } catch (error) {
       console.error("Błąd sprawdzania odpowiedzi:", error);
       alert("Wystąpił błąd komunikacji z serwerem.");
@@ -66,12 +53,20 @@ function App() {
     }
   };
 
+  // --- NOWE FUNKCJE NAWIGACYJNE ---
   const handleNastepnePytanie = () => {
     setWynik(null);
     setOdpowiedz('');
     setAktualnePytanieIndex(prevIndex => (prevIndex + 1) % pytania.length);
   };
-  
+
+  const handlePoprzedniePytanie = () => {
+    setWynik(null);
+    setOdpowiedz('');
+    // Ta formuła poprawnie obsługuje przejście z pierwszego do ostatniego pytania
+    setAktualnePytanieIndex(prevIndex => (prevIndex - 1 + pytania.length) % pytania.length);
+  };
+
   if (pytania.length === 0) return <div>Ładowanie...</div>;
 
   const aktualnePytanie = pytania[aktualnePytanieIndex];
@@ -83,16 +78,13 @@ function App() {
           <h1>Pytanie #{aktualnePytanieIndex + 1} / {pytania.length}</h1>
           <h2 className="punkty-info">Zdobyte punkty: {punkty}</h2>
         </div>
-        
         <div className="progress-bar-container">
-            <div className="progress-bar" style={{ width: `${((aktualnePytanieIndex + 1) / pytania.length) * 100}%` }}></div>
+          <div className="progress-bar" style={{ width: `${((aktualnePytanieIndex + 1) / pytania.length) * 100}%` }}></div>
         </div>
-        
         <div className="pytanie-container">
           <h2 className="pytanie-tresc">{aktualnePytanie.tresc}</h2>
           <p className="pytanie-punkty">Liczba punktów: {aktualnePytanie.punkty}</p>
         </div>
-
         <div className="odpowiedz-container">
           <textarea 
             className="odpowiedz-input" 
@@ -102,22 +94,31 @@ function App() {
             disabled={wynik !== null}
           />
           
-          {wynik ? (
-            <button className="sprawdz-button" onClick={handleNastepnePytanie}>Następne pytanie</button>
-          ) : (
-            <button className="sprawdz-button" onClick={handleSprawdzOdpowiedz} disabled={ladowanie}>
-              {ladowanie ? 'Sprawdzanie...' : 'Sprawdź'}
+          {/* --- ZMIENIONY KONTENER NA PRZYCISKI --- */}
+          <div className="przycisk-kontener">
+            <button className="przycisk-nawigacyjny" onClick={handlePoprzedniePytanie} disabled={ladowanie}>
+              Poprzednie
             </button>
-          )}
+
+            {wynik ? (
+              <button className="sprawdz-button" onClick={handleNastepnePytanie}>Dalej</button>
+            ) : (
+              <button className="sprawdz-button" onClick={handleSprawdzOdpowiedz} disabled={ladowanie}>
+                {ladowanie ? 'Sprawdzanie...' : 'Sprawdź'}
+              </button>
+            )}
+
+            <button className="przycisk-nawigacyjny" onClick={handleNastepnePytanie} disabled={ladowanie}>
+              Następne
+            </button>
+          </div>
         </div>
 
         {wynik && (
           <div className="wynik-container">
             {wynik.ocena ? (
               <h3>Ocena: <span className={`ocena-${wynik.ocena.replace(/\s+/g, '-')}`}>{wynik.ocena}</span></h3>
-            ) : (
-              <h3>Otrzymano odpowiedź od AI:</h3>
-            )}
+            ) : ( <h3>Otrzymano odpowiedź od AI:</h3> )}
             <p><strong>Komentarz AI:</strong> {wynik.komentarz || 'Brak komentarza.'}</p>
             {wynik.brakujace_informacje && wynik.brakujace_informacje.length > 0 && (
               <div>
@@ -129,12 +130,10 @@ function App() {
             )}
           </div>
         )}
-
       </header>
     </div>
   );
 }
 
 export default App;
-
 
